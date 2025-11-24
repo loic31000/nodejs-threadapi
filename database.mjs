@@ -1,76 +1,81 @@
-// On importe le module Sequelize et les types de données nécessaires
+// database.mjs
+
+// Import des modules nécessaires depuis Sequelize
 import Sequelize, { DataTypes } from 'sequelize'
 
-// On importe la librairie bcrypt pour chiffrer les mots de passe
+// Import de bcrypt pour le hachage des mots de passe
 import bcrypt from 'bcrypt'
 
-// On définit une fonction asynchrone pour charger et configurer Sequelize
+// Fonction asynchrone qui configure la connexion à la base et définit les modèles
 export async function loadSequelize() {
   try {
-    // Les informations de connexion à la base de données (nom, utilisateur, mot de passe)
-    const login = { database: 'threadapi-database', username: 'root', password: 'root' } 
+    // Informations de connexion à la base de données MySQL locale
+    const login = { database: 'threadapi-database', username: 'root', password: 'root' };
 
-    // On crée une instance de Sequelize configurée pour utiliser MySQL en local
+    // Création de l'instance Sequelize configurée
     const sequelize = new Sequelize(login.database, login.username, login.password, {
       host: '127.0.0.1',
       dialect: 'mysql',
-    })
+    });
 
-    // On définit le modèle "User" (utilisateur) avec ses champs
+    // Définition du modèle User (utilisateur)
     const User = sequelize.define('User', {
-      // Le nom d'utilisateur, de type chaîne de caractères
+      // Nom d'utilisateur
       username: DataTypes.STRING,
-      // L'adresse email, unique et de type chaîne de caractères
+      // Email, qui doit être unique
       email: { type: DataTypes.STRING, unique: true },
-      // Le mot de passe, qui sera automatiquement chiffré en base
+      // Mot de passe, stocké hashé automatiquement grâce à cette méthode set
       password: {
         type: DataTypes.STRING,
-        set(clear) { // Cette méthode s'exécute automatiquement quand on donne un mot de passe
-          const hashed = bcrypt.hashSync(clear, 10) // On chiffre le mot de passe en utilisant bcrypt
-          this.setDataValue('password', hashed) // On stocke la version chiffrée en base
+        set(clear) {
+          // Hash du mot de passe avec bcrypt, 10 tours
+          const hashed = bcrypt.hashSync(clear, 10);
+          // Stockage du hash au lieu du texte clair en base
+          this.setDataValue('password', hashed);
         },
       },
-    })
+    });
 
-    // On définit le modèle "Post" (tâche) avec ses champs
+    // Définition du modèle Post (article ou tâche)
     const Post = sequelize.define('Post', {
-      // Le titre du post
-      title: DataTypes.TEXT,
-      // Le contenu ou la description du post
-      content: DataTypes.TEXT,
-    })
-    
+      title: DataTypes.TEXT, // Titre du post
+      content: DataTypes.TEXT, // Contenu du post
+    });
+
+    // Définition du modèle Commentaire
     const Commentaire = sequelize.define('Commentaire', {
-        title: DataTypes.TEXT,
-        content: DataTypes.TEXT,
-    })
+      title: DataTypes.TEXT, // Titre du commentaire
+      content: DataTypes.TEXT, // Contenu du commentaire
+    });
 
+    // Définition des relations entre les modèles :
+    User.hasMany(Post); // Un utilisateur a plusieurs posts
+    User.hasMany(Commentaire); // Un utilisateur a plusieurs commentaires
+    Post.hasMany(Commentaire); // Un post a plusieurs commentaires
+    Post.belongsTo(User); // Un post appartient à un utilisateur
+    Commentaire.belongsTo(User); // Un commentaire appartient à un utilisateur
+    Commentaire.belongsTo(Post); // Un commentaire appartient à un post
 
-    // On crée la relation : un utilisateur possède plusieurs postes
-    User.hasMany(Post)
-    User.hasMany(Commentaire)
-    Post.hasMany(Commentaire)
-    // On crée la relation inverse : un post appartient à un utilisateur
-    Post.belongsTo(User)
-    Commentaire.belongsTo(User)
-    Commentaire.belongsTo(Post)
+    // Test de connexion à la base
+    await sequelize.authenticate();
 
-    // On teste la connexion à la base de données
-    await sequelize.authenticate()
-    // On synchronise les modèles avec la base (force:true efface tout et recrée les tables à chaque fois)
-    await sequelize.sync({ force: true })
+    // Synchronisation : recrée les tables à chaque lancement (force:true)
+    await sequelize.sync({ force: true });
 
-    // On crée un utilisateur "Billy" avec un mot de passe chiffré automatiquement
-    const billy = await User.create({ username: 'Billy', email: 'billy@mail.com', password: 'billy123' })
-    // "Billy" crée une tâche : faire les courses, avec une petite liste
-    await billy.createPost({ title: 'Faire les courses', content: 'ananas, savon, éponge' })
+    // Insertion de test : création d'un utilisateur
+    const billy = await User.create({ username: 'Billy', email: 'billy@mail.com', password: 'billy123' });
 
-    // On retourne l'objet sequelize pour éventuellement l’utiliser ailleurs
-    return sequelize
+    // Insertion d'un post lié à Billy
+    await billy.createPost({ title: 'Faire les courses', content: 'ananas, savon, éponge' });
+
+    // Retourne l'objet sequelize pour l'utiliser dans d'autres fichiers
+    return sequelize;
+
   } catch (error) {
-    // En cas d’erreur de connexion, on affiche l’erreur dans la console
-    console.log(error)
-    // On lève une nouvelle erreur personnalisée pour signaler le problème
-    throw new Error('Impossible de se connecter à la base de données')
+    // Affiche l'erreur en console si problème de connexion ou autre
+    console.log(error);
+    // Renvoie une erreur personnalisée
+    throw new Error('Impossible de se connecter à la base de données');
   }
 }
+
