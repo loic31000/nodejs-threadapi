@@ -1,0 +1,27 @@
+
+services:
+  bdd:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user
+      MYSQL_DATABASE: threadapi-database
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    
+  pma:
+    image: phpmyadmin
+    environment:
+      PMA_HOST: bdd
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8080:80"
+    depends_on:
+      - bdd
+
+volumes:
+  db_data:
